@@ -1,6 +1,7 @@
 from ollama import chat
 import json
 import os
+import re
 
 # Always keep memory.json inside the AURA project folder
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,55 @@ def save_memory(memory):
         json.dump(memory, file, indent=4, ensure_ascii=False)
 
 
+def calculate(a, operator, b):
+    if operator == "+":
+        return a + b
+
+    elif operator == "-":
+        return a - b
+
+    elif operator == "*":
+        return a * b
+
+    elif operator == "/":
+        if b == 0:
+            return "Cannot divide by zero."
+
+        return a / b
+
+    else:
+        return "Unknown operator."
+
+
+def try_calculate(user_input):
+    """
+    Looks for simple calculations such as:
+    25 + 5
+    100 - 40
+    12 * 8
+    100 / 4
+    """
+
+    pattern = r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)\s*$"
+
+    match = re.match(pattern, user_input)
+
+    if not match:
+        return None
+
+    a = float(match.group(1))
+    operator = match.group(2)
+    b = float(match.group(3))
+
+    result = calculate(a, operator, b)
+
+    # Make whole numbers look cleaner
+    if isinstance(result, float) and result.is_integer():
+        result = int(result)
+
+    return result
+
+
 print("Hi ABHI, I am ANI.")
 print("Type 'exit' to close me.")
 
@@ -42,6 +92,7 @@ conversation = [
     }
 ]
 
+
 # Load saved memories
 if memory:
     memory_text = "\n".join(
@@ -60,11 +111,17 @@ if memory:
 
 
 while True:
+
     user_input = input("You: ").strip()
 
+    # Exit
     if user_input.lower() == "exit":
         print("ANI: Goodbye, sir.")
         break
+
+    # Ignore empty input
+    if not user_input:
+        continue
 
     # Save information when the user asks ANI to remember something
     lower_input = user_input.lower()
@@ -94,6 +151,29 @@ while True:
 
             continue
 
+    # Calculator tool
+    calculation_result = try_calculate(user_input)
+
+    if calculation_result is not None:
+        print(f"ANI: The answer is {calculation_result}.")
+
+        conversation.append(
+            {
+                "role": "user",
+                "content": user_input
+            }
+        )
+
+        conversation.append(
+            {
+                "role": "assistant",
+                "content": f"The answer is {calculation_result}."
+            }
+        )
+
+        continue
+
+    # Normal AI conversation
     conversation.append(
         {
             "role": "user",
@@ -113,7 +193,9 @@ while True:
 
     for chunk in stream:
         text = chunk["message"]["content"]
+
         print(text, end="", flush=True)
+
         assistant_response += text
 
     print()

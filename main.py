@@ -1,7 +1,9 @@
-from ollama import chat
 import json
 import os
-import re
+
+from core.brain import ANIBrain
+from tools.calculator import try_calculate
+
 
 # Always keep memory.json inside the AURA project folder
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,188 +23,74 @@ def load_memory():
 
 def save_memory(memory):
     with open(MEMORY_FILE, "w", encoding="utf-8") as file:
-        json.dump(memory, file, indent=4, ensure_ascii=False)
-
-
-def calculate(a, operator, b):
-    if operator == "+":
-        return a + b
-
-    elif operator == "-":
-        return a - b
-
-    elif operator == "*":
-        return a * b
-
-    elif operator == "/":
-        if b == 0:
-            return "Cannot divide by zero."
-
-        return a / b
-
-    else:
-        return "Unknown operator."
-
-
-def try_calculate(user_input):
-    """
-    Looks for simple calculations such as:
-    25 + 5
-    100 - 40
-    12 * 8
-    100 / 4
-    """
-
-    pattern = r"^\s*(-?\d+(?:\.\d+)?)\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)\s*$"
-
-    match = re.match(pattern, user_input)
-
-    if not match:
-        return None
-
-    a = float(match.group(1))
-    operator = match.group(2)
-    b = float(match.group(3))
-
-    result = calculate(a, operator, b)
-
-    # Make whole numbers look cleaner
-    if isinstance(result, float) and result.is_integer():
-        result = int(result)
-
-    return result
-
-
-print("Hi ABHI, I am ANI.")
-print("Type 'exit' to close me.")
-
-memory = load_memory()
-
-conversation = [
-    {
-        "role": "system",
-        "content": (
-            "Your name is ANI. "
-            "You are Abhi's personal AI assistant. "
-            "Always identify yourself as ANI, never as Qwen. "
-            "Be friendly, helpful, and conversational. "
-            "Use conversation history and saved memory when answering. "
-            "Do not invent memories."
+        json.dump(
+            memory,
+            file,
+            indent=4,
+            ensure_ascii=False
         )
-    }
-]
 
 
-# Load saved memories
-if memory:
-    memory_text = "\n".join(
-        f"- {item}" for item in memory
-    )
+def main():
+    print("Hi ABHI, I am ANI.")
+    print("Type 'exit' to close me.")
 
-    conversation.append(
-        {
-            "role": "system",
-            "content": (
-                "These are things ANI has saved about Abhi:\n"
-                + memory_text
-            )
-        }
-    )
+    memory = load_memory()
 
+    brain = ANIBrain(memory)
 
-while True:
+    while True:
+        user_input = input("You: ").strip()
 
-    user_input = input("You: ").strip()
+        if user_input.lower() == "exit":
+            print("ANI: Goodbye, sir.")
+            break
 
-    # Exit
-    if user_input.lower() == "exit":
-        print("ANI: Goodbye, sir.")
-        break
-
-    # Ignore empty input
-    if not user_input:
-        continue
-
-    # Save information when the user asks ANI to remember something
-    lower_input = user_input.lower()
-
-    if lower_input.startswith("remember"):
-        memory_text = user_input[len("remember"):].strip()
-
-        if memory_text:
-            memory.append(memory_text)
-            save_memory(memory)
-
-            print("ANI: Got it, sir. I'll remember that.")
-
-            conversation.append(
-                {
-                    "role": "user",
-                    "content": user_input
-                }
-            )
-
-            conversation.append(
-                {
-                    "role": "assistant",
-                    "content": "Got it, sir. I'll remember that."
-                }
-            )
-
+        if not user_input:
             continue
 
-    # Calculator tool
-    calculation_result = try_calculate(user_input)
+        # -------------------------
+        # MEMORY
+        # -------------------------
 
-    if calculation_result is not None:
-        print(f"ANI: The answer is {calculation_result}.")
+        lower_input = user_input.lower()
 
-        conversation.append(
-            {
-                "role": "user",
-                "content": user_input
-            }
-        )
+        if lower_input.startswith("remember"):
+            memory_text = user_input[len("remember"):].strip()
 
-        conversation.append(
-            {
-                "role": "assistant",
-                "content": f"The answer is {calculation_result}."
-            }
-        )
+            if memory_text:
+                memory.append(memory_text)
+                save_memory(memory)
 
-        continue
+                print("ANI: Got it, sir. I'll remember that.")
 
-    # Normal AI conversation
-    conversation.append(
-        {
-            "role": "user",
-            "content": user_input
-        }
-    )
+                # Rebuild brain so the new memory is available
+                brain = ANIBrain(memory)
 
-    print("ANI: ", end="", flush=True)
+                continue
 
-    stream = chat(
-        model="qwen3:4b",
-        messages=conversation,
-        stream=True
-    )
+        # -------------------------
+        # CALCULATOR TOOL
+        # -------------------------
 
-    assistant_response = ""
+        calculation_result = try_calculate(user_input)
 
-    for chunk in stream:
-        text = chunk["message"]["content"]
+        if calculation_result is not None:
+            print(
+                f"ANI: The answer is {calculation_result}."
+            )
+            continue
 
-        print(text, end="", flush=True)
+        # -------------------------
+        # AI BRAIN
+        # -------------------------
 
-        assistant_response += text
+        print("ANI: ", end="", flush=True)
 
-    print()
+        response = brain.ask(user_input)
 
-    conversation.append(
-        {
-            "role": "assistant",
-            "content": assistant_response
-        }
-    )
+        print(response)
+
+
+if __name__ == "__main__":
+    main()

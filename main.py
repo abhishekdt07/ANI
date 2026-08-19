@@ -1,11 +1,11 @@
 import os
 
 from core.brain import ANIBrain
+from core.router import ANIRouter
 from memory.memory import ANIMemory
 from tools.calculator import try_calculate
 
 
-# AURA project folder
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MEMORY_FILE = os.path.join(BASE_DIR, "memory.json")
 
@@ -27,6 +27,12 @@ def main():
     brain = ANIBrain(memory.get_all())
 
     # -------------------------
+    # ROUTER
+    # -------------------------
+
+    router = ANIRouter(memory, brain)
+
+    # -------------------------
     # MAIN LOOP
     # -------------------------
 
@@ -42,45 +48,55 @@ def main():
             continue
 
         # -------------------------
-        # REMEMBER
+        # ASK ROUTER
         # -------------------------
 
-        lower_input = user_input.lower()
+        route = router.route(user_input)
 
-        if lower_input.startswith("remember"):
-            information = user_input[len("remember"):].strip()
+        # -------------------------
+        # MEMORY
+        # -------------------------
 
-            if information:
-                memory.remember(information)
+        if route == "memory_saved":
+            print("ANI: Got it, sir. I'll remember that.")
 
-                print("ANI: Got it, sir. I'll remember that.")
+            # Refresh brain with latest memory
+            brain = ANIBrain(memory.get_all())
+            router.brain = brain
 
-                # Give the updated memory to the brain
-                brain = ANIBrain(memory.get_all())
-
-                continue
+            continue
 
         # -------------------------
         # CALCULATOR
         # -------------------------
 
-        calculation_result = try_calculate(user_input)
+        if route == "calculator":
 
-        if calculation_result is not None:
-            print(
-                f"ANI: The answer is {calculation_result}."
-            )
-            continue
+            result = try_calculate(user_input)
+
+            if result is not None:
+                print(f"ANI: The answer is {result}.")
+                continue
 
         # -------------------------
         # AI BRAIN
         # -------------------------
 
-        print("ANI: ", end="", flush=True)
+        if route == "brain":
 
-        response = brain.ask(user_input)
+            print("ANI: ", end="", flush=True)
 
-        print(response)
+            response = brain.ask(user_input)
+
+            print(response)
+
+            continue
+
+        # -------------------------
+        # FALLBACK
+        # -------------------------
+
+        print("ANI: I'm not sure how to handle that yet.")
 
 
 if __name__ == "__main__":

@@ -4,13 +4,21 @@ from core.brain import ANIBrain
 from core.router import ANIRouter
 from memory.memory import ANIMemory
 from tools.calculator import try_calculate
+from voice.tts_bridge import speak
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MEMORY_FILE = os.path.join(BASE_DIR, "memory.json")
 
 
+def say(text):
+    """Print ANI's response and speak it."""
+    print(f"ANI: {text}")
+    speak(text)
+
+
 def main():
+
     print("Hi ABHI, I am ANI.")
     print("Type 'exit' to close me.")
 
@@ -41,7 +49,8 @@ def main():
         user_input = input("You: ").strip()
 
         if user_input.lower() == "exit":
-            print("ANI: Goodbye, sir.")
+
+            say("Goodbye, sir.")
             break
 
         if not user_input:
@@ -58,7 +67,8 @@ def main():
         # -------------------------
 
         if route == "memory_saved":
-            print("ANI: Got it, sir. I'll remember that.")
+
+            say("Got it, sir. I'll remember that.")
 
             # Refresh brain with latest memory
             brain = ANIBrain(memory.get_all())
@@ -75,7 +85,8 @@ def main():
             result = try_calculate(user_input)
 
             if result is not None:
-                print(f"ANI: The answer is {result}.")
+
+                say(f"The answer is {result}.")
                 continue
 
         # -------------------------
@@ -84,11 +95,9 @@ def main():
 
         if route == "brain":
 
-            print("ANI: ", end="", flush=True)
-
             response = brain.ask(user_input)
 
-            print(response)
+            say(response)
 
             continue
 
@@ -96,7 +105,7 @@ def main():
         # FALLBACK
         # -------------------------
 
-        print("ANI: I'm not sure how to handle that yet.")
+        say("I'm not sure how to handle that yet.")
 
 
 if __name__ == "__main__":

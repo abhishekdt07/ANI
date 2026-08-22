@@ -7,56 +7,83 @@ class ANIListener:
 
         self.recognizer = sr.Recognizer()
 
-        self.microphone = sr.Microphone(
-            device_index=1
-        )
+        # Ignore tiny background noise
+        self.recognizer.energy_threshold = 300
+
+        # Automatically adjust to the room
+        self.recognizer.dynamic_energy_threshold = True
+
+        # Don't wait forever for speech
+        self.recognizer.pause_threshold = 0.8
+
+        self.microphone = sr.Microphone()
 
         print("🎤 ANI microphone initialized.")
 
-    def listen(self):
-
+        # Calibrate microphone once
         with self.microphone as source:
 
-            print("\n🎤 Listening...")
+            print("🎧 Calibrating microphone...")
 
             self.recognizer.adjust_for_ambient_noise(
                 source,
                 duration=1
             )
 
+        print("🎤 Microphone ready.")
+
+    def listen(self):
+
+        with self.microphone as source:
+
+            print("\n🎤 Listening...", flush=True)
+
             try:
 
                 audio = self.recognizer.listen(
                     source,
-                    timeout=10,
-                    phrase_time_limit=12
+                    timeout=5,
+                    phrase_time_limit=10
                 )
 
             except sr.WaitTimeoutError:
 
-                print("ANI: I didn't hear anything.")
+                # No speech — silently listen again
                 return None
 
-        try:
+        print("🧠 Processing...", flush=True)
 
-            print("🧠 Processing...")
+        try:
 
             text = self.recognizer.recognize_google(
                 audio
             )
 
-            print(f"You said: {text}")
+            text = text.strip()
 
-            return text
+            if text:
+
+                print(
+                    f"You said: {text}",
+                    flush=True
+                )
+
+                return text
+
+            return None
 
         except sr.UnknownValueError:
 
-            print("ANI: I couldn't understand that.")
+            # Couldn't understand speech.
+            # Don't make ANI speak every time.
             return None
 
         except sr.RequestError as e:
 
-            print(f"ANI: Speech recognition error: {e}")
+            print(
+                f"Speech recognition service error: {e}"
+            )
+
             return None
 
 
@@ -64,13 +91,19 @@ if __name__ == "__main__":
 
     listener = ANIListener()
 
-    while True:
+    print("\nListener test started.")
+    print("Say something, or press Ctrl+C to stop.")
 
-        text = listener.listen()
+    try:
 
-        if text:
+        while True:
 
-            if text.lower() in ["exit", "quit"]:
+            result = listener.listen()
 
-                print("ANI: Goodbye, sir.")
-                break
+            if result:
+
+                print(f"Recognized: {result}")
+
+    except KeyboardInterrupt:
+
+        print("\nListener stopped.")
